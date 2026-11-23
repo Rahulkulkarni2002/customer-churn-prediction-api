@@ -128,6 +128,12 @@ I made this choice deliberately after thinking about whether I actually needed t
 
 The first thing I would do is move the live app and the API from the snapshot model to the forward looking model, so the deployed version answers the real business question. I would also train on several cutoff dates across the year and add seasonal features, since the strictest test showed that churn rates change a lot between summer and the weeks before Christmas. After that I would test whether features like product categories or country give the more complex models a real advantage, and I would connect the deployed app to the MLflow tracked model files instead of retraining at startup, since that is closer to how a real production system works.
 
+## How to run this yourself
+
+To run the notebook, download this repository, open a terminal in its folder and install the packages with `pip install -r requirements-notebook.txt`. Then open `churn.ipynb` in Jupyter or VS Code and choose Run All. The data files are included, so nothing else needs downloading, and the whole notebook runs in under a minute.
+
+To run the app on your own computer, install the packages with `pip install -r requirements.txt` and start it with `streamlit run streamlit_app.py`. To run the API, also install fastapi and uvicorn, then start it with `uvicorn main:app --reload` and open http://127.0.0.1:8000/docs to try it.
+
 ## Files in this repository
 
 churn.ipynb contains the full analysis, from loading the data through training and comparing the models. The forward looking model comes first and the snapshot version is in the appendix.
@@ -138,7 +144,7 @@ app.py is the original two service version of the Streamlit app that calls the F
 
 streamlit_app.py is the self contained version actually deployed live, with the model built directly into the app.
 
-requirements.txt lists the Python packages needed to run this project.
+requirements.txt lists the Python packages the live app needs, and requirements-notebook.txt lists the ones needed to run the notebook.
 
 cleaned_retail.csv and rfm_table.csv are the underlying cleaned dataset and RFM feature table, reused from the companion segmentation project.
 
