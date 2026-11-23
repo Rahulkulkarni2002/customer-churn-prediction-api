@@ -36,23 +36,20 @@ Then I expanded to the full seven feature set described above and tried Logistic
 
 I also tried combining models into a voting ensemble, first with three models and then with four, including Random Forest. The four model ensemble ended up performing almost identically to the three model version, which told me Random Forest wasn't adding much new information on top of what the other models were already capturing.
 
-Here's the honest comparison across everything I tried, measured on a held out test set.
+**Here's the honest comparison across everything I tried, measured on the same held out test set (1,171 customers).**
 
-Logistic Regression with two features got 69.0 percent accuracy and an F1 score of 0.73.
+| Model | Features | Accuracy | F1 score |
+|---|---|---|---|
+| Logistic Regression | 2 | 69.0% | 0.730 |
+| XGBoost | 2 | 69.4% | 0.717 |
+| Logistic Regression | 7 | 71.0% | 0.724 |
+| XGBoost | 7 | 71.9% | 0.742 |
+| Neural Network (MLP) | 7 | 72.2% | 0.746 |
+| **Random Forest (chosen)** | **7** | **72.4%** | **0.749** |
+| Ensemble of 3 models | 7 | 72.8% | 0.746 |
+| Ensemble of 4 models | 7 | 72.8% | 0.747 |
 
-XGBoost with two features got 69.4 percent accuracy and an F1 score of 0.72.
-
-Logistic Regression with seven features got 71.0 percent accuracy and an F1 score of 0.72.
-
-XGBoost with seven features got 71.9 percent accuracy and an F1 score of 0.74.
-
-The neural network with seven features got 72.2 percent accuracy and an F1 score of 0.75.
-
-Random Forest with seven features got 72.4 percent accuracy and an F1 score of 0.749, which turned out to be the best F1 score of any single model I tried, with 81.0 percent recall.
-
-The three model ensemble got 72.8 percent accuracy with an F1 score of 0.746.
-
-The four model ensemble, adding Random Forest into the mix, got 72.8 percent accuracy with an F1 score of 0.747, essentially no improvement over the simpler three model version.
+**Random Forest had the best F1 score of any single model, with 81.0 percent recall.** The two ensembles were about 0.4 points more accurate but no better on F1, so they added complexity without a real gain.
 
 In the end I chose Random Forest as the model I actually deploy, not because it's the most complex option, but because it matched or beat every more complicated alternative, including the ensembles, while being much simpler to actually put into production. That felt like the right tradeoff for a real deployed system rather than chasing a marginal, possibly noisy improvement from added complexity.
 
