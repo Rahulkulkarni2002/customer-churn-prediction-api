@@ -48,13 +48,19 @@ XGBoost with seven features got 71.9 percent accuracy and an F1 score of 0.74.
 
 The neural network with seven features got 72.2 percent accuracy and an F1 score of 0.75.
 
-Random Forest with seven features got 72.4 percent accuracy and an F1 score of 0.749, which turned out to be the best F1 score and best recall of any single model I tried.
+Random Forest with seven features got 72.4 percent accuracy and an F1 score of 0.749, which turned out to be the best F1 score of any single model I tried, with 81.0 percent recall.
 
 The three model ensemble got 72.8 percent accuracy with an F1 score of 0.746.
 
 The four model ensemble, adding Random Forest into the mix, got 72.8 percent accuracy with an F1 score of 0.747, essentially no improvement over the simpler three model version.
 
 In the end I chose Random Forest as the model I actually deploy, not because it's the most complex option, but because it matched or beat every more complicated alternative, including the ensembles, while being much simpler to actually put into production. That felt like the right tradeoff for a real deployed system rather than chasing a marginal, possibly noisy improvement from added complexity.
+
+## Forward looking validation
+
+The comparison above uses one snapshot, where the churn label and the features come from the same two year window. That finds customers who have already gone quiet. To check the model can predict who will stop buying, I rebuilt the problem with a time based split. Features come only from transactions before a cutoff date (10 September 2011), and churn means no purchase in the 90 days after it. Because Recency is now measured at the cutoff, it is a legitimate feature rather than leakage.
+
+On 1,052 held out customers, Random Forest with the same seven features plus Recency got 76.2 percent accuracy, 85.5 percent recall, an F1 score of 0.803 and an AUC of 0.818. A simple rule that flags anyone with no purchase in 90 days gets 72.3 percent accuracy, and always predicting churn gets 56.5 percent. So the model catches about 85 percent of customers who go on to stop buying and beats the simple rule by about four points, a modest but real gain with only RFM style features. The deployed app still uses the snapshot model, and moving it to this forward looking version is the next step.
 
 ## Experiment tracking
 
