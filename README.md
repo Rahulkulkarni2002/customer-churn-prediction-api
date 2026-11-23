@@ -14,19 +14,76 @@ Given how often a customer has purchased and how much they've spent, can I predi
 
 I reused the cleaned Online Retail II dataset from an earlier project of mine, a customer segmentation and retention analysis I built using RFM analysis and K-means clustering. That project is here if you want to see how the data was originally cleaned: https://github.com/Rahulkulkarni2002/customer-segmentation-retention-analysis
 
-Since I already had a clean, well understood dataset with Recency, Frequency, and Monetary features already built for each customer, it made sense to reuse it here rather than start over with a brand new dataset. The full dataset covers about 804,000 transactions across roughly 5,855 customers.
+Since I already had a clean, well understood dataset with Recency, Frequency, and Monetary features already built for each customer, it made sense to reuse it here rather than start over with a brand new dataset. The full dataset covers about 804,000 transactions across roughly 5,855 customers, over two years from December 2009 to December 2011.
 
-## How I defined churn
+## The main result, predicting who will stop buying
+
+A business does not need to know who has already gone quiet, it needs to know who is about to. So the main model in this project is forward looking. I picked a cutoff date, 10 September 2011, which is 90 days before the data ends. Every feature is built only from what happened before that date, and churn means the customer made no purchase in the 90 days after it. That gave me 5,258 customers who had bought at least once before the cutoff, and 56.4 percent of them did not buy again in the next 90 days.
+
+The features are the number of orders, total spend, tenure, average order value, log versions of orders and spend, orders multiplied by spend, and Recency, which is the number of days since the last purchase as of the cutoff date. Recency is a fair feature here because it is measured before the cutoff and the label comes entirely from after it.
+
+## Model comparison
+
+**I compared four algorithms on the same split, 4,206 customers to train and 1,052 held out to test.**
+
+| Model | Accuracy | Recall | F1 score | AUC |
+|---|---|---|---|---|
+| Logistic Regression | 74.0% | 80.1% | 0.777 | 0.809 |
+| XGBoost | 75.6% | 84.0% | 0.795 | 0.819 |
+| Neural Network (MLP) | 75.0% | 83.7% | 0.791 | 0.816 |
+| **Random Forest (chosen)** | **76.2%** | **85.5%** | **0.803** | 0.818 |
+
+**Random Forest was best on accuracy, recall and F1.** All four models are close, which told me the features matter more than the choice of algorithm. Without Recency the same Random Forest drops to 72.1 percent accuracy, so Recency is the strongest signal. Always predicting churn would score 56.5 percent.
+
+## What the result means in customers
+
+Of the 1,052 held out customers, 594 really stopped buying. The model flagged 672 customers. 508 of those were correct, so it caught 85.5 percent of the customers who left, with 164 false alarms and 86 missed. A simple rule that flags anyone with no purchase in 90 days caught 494 with 191 false alarms, so the model finds 14 more churners with 27 fewer false alarms. That is a real but modest gain.
+
+The model is more useful for ranking customers by risk than for a yes or no answer. I ranked all 5,258 customers using a model trained on an earlier period.
+
+| Risk group | Customers | Stopped buying | Share of prior year spend |
+|---|---|---|---|
+| Riskiest 20% | 1,052 | 85.8% | 1.2% |
+| High | 1,051 | 74.9% | 4.4% |
+| Middle | 1,052 | 63.2% | 9.4% |
+| Low | 1,051 | 41.8% | 14.7% |
+| Safest 20% | 1,052 | 16.5% | 70.2% |
+
+The ranking works, 86 percent of the riskiest group left against 17 percent of the safest. But the riskiest group spends very little, so it is not where the money is.
+
+**The model is most valuable among high value customers.** The top 25 percent of customers by spend, 1,315 customers, bring in 82.6 percent of revenue, and 21.1 percent of them stopped buying. Within that group the model's riskiest 20 percent, 263 customers, stopped buying 46.4 percent of the time, against 4.6 percent for its safest 20 percent. Those 263 customers spent about 854 thousand pounds in the prior year, which makes them the group worth contacting first.
+
+## Checking that the result is real
+
+I checked for overfitting. Random Forest scored 76.6 percent accuracy on the training customers and 76.2 percent on the held out customers, so it is not memorising. Five fold cross validation gave an AUC of 0.797, between 0.793 and 0.802 on every fold, so about 0.80 is the honest AUC and the 0.818 in the table is one slightly favourable split.
+
+I also ran a stricter test. I trained the models at an earlier cutoff, 12 June 2011, and tested them on all 5,258 customers at the later cutoff, 10 September 2011.
+
+| Model | Accuracy | Recall | Precision | AUC |
+|---|---|---|---|---|
+| Logistic Regression | 71.1% | 92.7% | 67.9% | 0.797 |
+| XGBoost | 70.3% | 91.9% | 67.3% | 0.791 |
+| Neural Network (MLP) | 70.6% | 92.6% | 67.4% | 0.796 |
+| Random Forest | 70.0% | 93.9% | 66.6% | 0.791 |
+| Simple rule, no purchase in 90 days | 70.3% | 80.2% | | |
+
+**The AUC holds at about 0.79 to 0.80, so the ranking of customers by churn risk is stable over time.** Accuracy drops to about 70 percent, level with the simple rule, and the reason is seasonality. In the summer training window 67.8 percent of customers went quiet, but in the window before Christmas only 56.4 percent did, so a model trained on summer flags too many customers in autumn. The honest conclusion is that this model is useful for ranking customers by risk, with an AUC of about 0.80, and that the cut off for calling someone churned needs to be reset for the season.
+
+## My first approach, a snapshot model
+
+Before the forward looking model I built a simpler snapshot version, and I am keeping it here because it shows how I got to the final design. In the snapshot version the churn label and the features both come from the same two year window, so it identifies customers who have already gone quiet rather than predicting who will. That limitation is the reason I moved to the forward looking design above. The experiment tracking, the API and the live app described below still use this snapshot model.
+
+### How I defined churn in the snapshot version
 
 I didn't have a churn label handed to me, so I had to define one myself. I used Recency, which is how many days it's been since a customer's last purchase, and defined churn as any customer who hasn't purchased in the last 90 days. I picked 90 days deliberately rather than an arbitrary number. The median Recency across all customers was already around 95 days, so a 90 day cutoff gave me a genuinely balanced target, about 50.7 percent churned and 49.3 percent active, rather than something heavily skewed where almost everyone or almost no one is labeled churned. A shorter cutoff like 30 days would have classified most of the customer base as churned, which wouldn't have been a useful label for a business to act on.
 
-## Features and a leakage mistake I avoided
+### Features and a leakage mistake I avoided
 
 For features I engineered several things from the raw transaction data. Frequency and Monetary came directly from the existing RFM table. I also added Tenure, which is the number of days between a customer's first and last purchase, calculated straight from the transaction dates. I added AvgOrderValue, which is Monetary divided by Frequency, since spend per order is a genuinely different signal than either raw number alone. I log transformed Frequency and Monetary since both were right skewed, and I added an interaction term multiplying Frequency and Monetary together, so the models could see combined high frequency, high spend behavior directly.
 
 One thing I want to call out specifically is that I deliberately did not include Recency as a feature in the model. Recency is literally what I used to create the Churned label in the first place, so if I'd included it as a feature, the model would essentially just be learning the rule I used to build the label, which isn't real prediction, it's circular. I checked for this kind of leakage before training anything, not after.
 
-## Model comparison
+### Snapshot model comparison
 
 I didn't just pick one model and go with it. I trained and compared six different approaches on the same train test split, using the same features, so the comparison would actually be fair.
 
@@ -53,12 +110,6 @@ I also tried combining models into a voting ensemble, first with three models an
 
 In the end I chose Random Forest as the model I actually deploy, not because it's the most complex option, but because it matched or beat every more complicated alternative, including the ensembles, while being much simpler to actually put into production. That felt like the right tradeoff for a real deployed system rather than chasing a marginal, possibly noisy improvement from added complexity.
 
-## Forward looking validation
-
-The comparison above uses one snapshot, where the churn label and the features come from the same two year window. That finds customers who have already gone quiet. To check the model can predict who will stop buying, I rebuilt the problem with a time based split. Features come only from transactions before a cutoff date (10 September 2011), and churn means no purchase in the 90 days after it. Because Recency is now measured at the cutoff, it is a legitimate feature rather than leakage.
-
-On 1,052 held out customers, Random Forest with the same seven features plus Recency got 76.2 percent accuracy, 85.5 percent recall, an F1 score of 0.803 and an AUC of 0.818. A simple rule that flags anyone with no purchase in 90 days gets 72.3 percent accuracy, and always predicting churn gets 56.5 percent. So the model catches about 85 percent of customers who go on to stop buying and beats the simple rule by about four points, a modest but real gain with only RFM style features. The deployed app still uses the snapshot model, and moving it to this forward looking version is the next step.
-
 ## Experiment tracking
 
 I used MLflow to track all six models I trained, logging the parameters, accuracy, precision, recall, and F1 score for each one, along with saving the actual trained model files. I ran into a couple of real environment issues along the way, MLflow initially refused to save the XGBoost and neural network models because of a security check on untrusted object types, which I resolved by using XGBoost's own dedicated logging function and explicitly marking the specific neural network internal type as trusted. I also had the MLflow web dashboard fail to show my logged runs for a while, which turned out to be a mismatch between where the tracking data was actually saved and where the dashboard was looking, not a problem with my actual training code. I confirmed this directly using MLflow's Python client rather than just trusting the browser, and found all my runs were genuinely saved correctly the whole time.
@@ -75,11 +126,11 @@ I made this choice deliberately after thinking about whether I actually needed t
 
 ## What I'd do differently with more time
 
-I'd like to go back and test whether adding more features, maybe something about product category preferences or geographic location, actually gives the more complex models like the neural network or the ensembles a real advantage over Random Forest, rather than the marginal differences I found here. I'd also like to properly connect the deployed app to the MLflow tracked model artifacts instead of retraining directly at startup, since that's closer to how a real production system would actually work.
+The first thing I would do is move the live app and the API from the snapshot model to the forward looking model, so the deployed version answers the real business question. I would also train on several cutoff dates across the year and add seasonal features, since the strictest test showed that churn rates change a lot between summer and the weeks before Christmas. After that I would test whether features like product categories or country give the more complex models a real advantage, and I would connect the deployed app to the MLflow tracked model files instead of retraining at startup, since that is closer to how a real production system works.
 
 ## Files in this repository
 
-churn.ipynb contains the full analysis, from loading the data through training and comparing all six models.
+churn.ipynb contains the full analysis, from loading the data through training and comparing the models. The forward looking model comes first and the snapshot version is in the appendix.
 
 main.py is the FastAPI application, meant to be run locally with uvicorn.
 
