@@ -38,18 +38,18 @@ I also tried combining models into a voting ensemble, first with three models an
 
 **Here's the honest comparison across everything I tried, measured on the same held out test set (1,171 customers).**
 
-| Model | Features | Accuracy | F1 score |
-|---|---|---|---|
-| Logistic Regression | 2 | 69.0% | 0.730 |
-| XGBoost | 2 | 69.4% | 0.717 |
-| Logistic Regression | 7 | 71.0% | 0.724 |
-| XGBoost | 7 | 71.9% | 0.742 |
-| Neural Network (MLP) | 7 | 72.2% | 0.746 |
-| **Random Forest (chosen)** | **7** | **72.4%** | **0.749** |
-| Ensemble of 3 models | 7 | 72.8% | 0.746 |
-| Ensemble of 4 models | 7 | 72.8% | 0.747 |
+| Model | Features | Accuracy | Recall | F1 score |
+|---|---|---|---|---|
+| Logistic Regression | 2 | 69.0% | 82.5% | 0.730 |
+| XGBoost | 2 | 69.4% | 76.4% | 0.717 |
+| Logistic Regression | 7 | 71.0% | 74.9% | 0.724 |
+| XGBoost | 7 | 71.9% | 79.8% | 0.742 |
+| Neural Network (MLP) | 7 | 72.2% | 80.6% | 0.746 |
+| **Random Forest (chosen)** | **7** | **72.4%** | **81.0%** | **0.749** |
+| Ensemble of 3 models | 7 | 72.8% | 79.0% | 0.746 |
+| Ensemble of 4 models | 7 | 72.8% | 79.5% | 0.747 |
 
-**Random Forest had the best F1 score of any single model, with 81.0 percent recall.** The two ensembles were about 0.4 points more accurate but no better on F1, so they added complexity without a real gain.
+**Random Forest had the best F1 score of any single model and caught 81.0 percent of churners (recall).** Only the 2 feature Logistic Regression recalled slightly more (82.5 percent), but with much lower accuracy. The two ensembles were about 0.4 points more accurate but no better on F1, so they added complexity without a real gain.
 
 In the end I chose Random Forest as the model I actually deploy, not because it's the most complex option, but because it matched or beat every more complicated alternative, including the ensembles, while being much simpler to actually put into production. That felt like the right tradeoff for a real deployed system rather than chasing a marginal, possibly noisy improvement from added complexity.
 
