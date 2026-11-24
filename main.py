@@ -6,22 +6,33 @@ from sklearn.ensemble import RandomForestClassifier
 
 app = FastAPI(title="Customer Churn Prediction API")
 
-# Load and prepare data, train the model once at startup
+# Forward-looking model, the same design as Part 2 of churn.ipynb:
+# features come from before a cutoff date, the label from the 90 days after it.
+# The model is trained once at startup.
 data = pd.read_csv("cleaned_retail.csv")
-rfm = pd.read_csv("rfm_table.csv")
-
 data["InvoiceDate"] = pd.to_datetime(data["InvoiceDate"])
-rfm["Churned"] = (rfm["Recency"] > 90).astype(int)
 
-tenure = data.groupby("Customer ID")["InvoiceDate"].agg(["min", "max"])
-tenure["Tenure"] = (tenure["max"] - tenure["min"]).dt.days
-tenure = tenure[["Tenure"]].reset_index()
-rfm = rfm.merge(tenure, on="Customer ID", how="left")
+cutoff = data["InvoiceDate"].max() - pd.Timedelta(days=90)
+before = data[data["InvoiceDate"] <= cutoff].copy()
+after = data[data["InvoiceDate"] > cutoff]
 
-rfm["AvgOrderValue"] = rfm["Monetary"] / rfm["Frequency"]
-rfm["Frequency_log"] = np.log1p(rfm["Frequency"])
-rfm["Monetary_log"] = np.log1p(rfm["Monetary"])
-rfm["Freq_Monetary_Interaction"] = rfm["Frequency"] * rfm["Monetary"]
+before["Amount"] = before["Quantity"] * before["Price"]
+fwd = before.groupby("Customer ID").agg(
+    Frequency=("Invoice", "nunique"),
+    Monetary=("Amount", "sum"),
+    first_purchase=("InvoiceDate", "min"),
+    last_purchase=("InvoiceDate", "max"),
+)
+
+fwd["Tenure"] = (fwd["last_purchase"] - fwd["first_purchase"]).dt.days
+fwd["AvgOrderValue"] = fwd["Monetary"] / fwd["Frequency"]
+fwd["Frequency_log"] = np.log1p(fwd["Frequency"])
+fwd["Monetary_log"] = np.log1p(fwd["Monetary"].clip(lower=0))
+fwd["Freq_Monetary_Interaction"] = fwd["Frequency"] * fwd["Monetary"]
+fwd["Recency"] = (cutoff - fwd["last_purchase"]).dt.days
+
+bought_again = after["Customer ID"].unique()
+fwd["Churned"] = (~fwd.index.isin(bought_again)).astype(int)
 
 feature_cols = [
     "Frequency",
@@ -31,12 +42,11 @@ feature_cols = [
     "Frequency_log",
     "Monetary_log",
     "Freq_Monetary_Interaction",
+    "Recency",
 ]
-X = rfm[feature_cols]
-y = rfm["Churned"]
 
 model = RandomForestClassifier(n_estimators=100, max_depth=6, random_state=42)
-model.fit(X, y)
+model.fit(fwd[feature_cols], fwd["Churned"])
 
 
 # Define the expected input shape for predictions
@@ -44,6 +54,7 @@ class CustomerFeatures(BaseModel):
     Frequency: float
     Monetary: float
     Tenure: float
+    Recency: float
 
 
 @app.get("/")
@@ -59,11 +70,8 @@ def predict_churn(customer: CustomerFeatures):
         raise HTTPException(status_code=400, detail="Monetary cannot be negative")
     if customer.Tenure < 0:
         raise HTTPException(status_code=400, detail="Tenure cannot be negative")
-
-    avg_order_value = customer.Monetary / customer.Frequency
-    frequency_log = np.log1p(customer.Frequency)
-    monetary_log = np.log1p(customer.Monetary)
-    interaction = customer.Frequency * customer.Monetary
+    if customer.Recency < 0:
+        raise HTTPException(status_code=400, detail="Recency cannot be negative")
 
     features = pd.DataFrame(
         [
@@ -71,13 +79,14 @@ def predict_churn(customer: CustomerFeatures):
                 "Frequency": customer.Frequency,
                 "Monetary": customer.Monetary,
                 "Tenure": customer.Tenure,
-                "AvgOrderValue": avg_order_value,
-                "Frequency_log": frequency_log,
-                "Monetary_log": monetary_log,
-                "Freq_Monetary_Interaction": interaction,
+                "AvgOrderValue": customer.Monetary / customer.Frequency,
+                "Frequency_log": np.log1p(customer.Frequency),
+                "Monetary_log": np.log1p(customer.Monetary),
+                "Freq_Monetary_Interaction": customer.Frequency * customer.Monetary,
+                "Recency": customer.Recency,
             }
         ]
-    )
+    )[feature_cols]
 
     prediction = model.predict(features)[0]
     probability = model.predict_proba(features)[0][1]
