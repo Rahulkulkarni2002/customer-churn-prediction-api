@@ -10,6 +10,7 @@ Live app: https://customer-churn-prediction-rahul.streamlit.app/
 - **Tested on big spenders:** on a past period, the big spenders it flagged left about 10 times more often than the ones it scored as low risk (46 percent against 5 percent).
 - **The result:** a contact list of 292 high value customers, worth about 882 thousand pounds a year, who are most likely to stop buying in the next 90 days.
 - **Built end to end:** 10 models tracked in MLflow, a FastAPI endpoint, and a live Streamlit app.
+- **Currency:** the data is in pounds (£). £1 was worth about $1.57 on average over this period, so the 882 thousand pounds on the contact list is about $1.4M.
 
 ## What this project is
 
