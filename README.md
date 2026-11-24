@@ -78,7 +78,7 @@ I also ran a stricter test, training the Random Forest at an earlier cutoff, 12 
 
 Of the 1,052 held out customers, 594 really stopped buying. The model caught 508 of them, which is 85.5 percent, with 164 false alarms and 86 missed. The simple rule caught 494 with 191 false alarms, so the model finds 14 more leavers with 27 fewer false alarms. That is a real but modest gain.
 
-The model is more useful for ranking. I ranked all 5,258 customers by predicted risk, using the model trained on the earlier period.
+The model is more useful for ranking. I ranked all 5,258 customers by predicted risk, using the model trained on the earlier period, and split them into five equal groups of about 1,052 customers each.
 
 | Risk group | Customers | Stopped buying | Share of prior year spend |
 |---|---|---|---|
@@ -88,9 +88,16 @@ The model is more useful for ranking. I ranked all 5,258 customers by predicted 
 | Low | 1,051 | 41.8% | 14.7% |
 | Safest 20% | 1,052 | 16.5% | 70.2% |
 
-The ranking works, but the riskiest group spends very little, so it is not where the money is.
+The ranking works, but the riskiest group spends very little, so it is not where the money is. So I narrowed it down to the customers who spend the most.
 
-**The model is most valuable among high value customers.** The top 25 percent of customers by spend, 1,315 customers, bring in 82.6 percent of revenue, and 21.1 percent of them stopped buying. Within that group the model's riskiest 20 percent, 263 customers who spent about 854 thousand pounds in the prior year, stopped buying 46.4 percent of the time, against 4.6 percent for its safest 20 percent. Those are the customers worth contacting first.
+**The model is most valuable among high value customers.** I got to this group in two steps. First I kept the top 25 percent of the 5,258 customers by spend, which is 1,315 high value customers. They bring in 82.6 percent of revenue, and 21.1 percent of them stopped buying. Then I ranked those 1,315 by risk score and took the riskiest 20 percent, which is 263 customers.
+
+| Group | Customers | Stopped buying |
+|---|---|---|
+| Riskiest 20% of high value customers | 263 | 46.4% (122 customers) |
+| Safest 20% of high value customers | 263 | 4.6% (12 customers) |
+
+**So among the customers who bring in most of the money, the riskiest group is about 10 times more likely to leave than the safest group.** Those 263 riskiest customers spent about 854 thousand pounds in the prior year, and they are the ones worth contacting first.
 
 ## Experiment tracking
 
